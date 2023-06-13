@@ -1,0 +1,4 @@
+model
+*.pdf
+log.md
+__pycache__
