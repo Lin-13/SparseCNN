@@ -3,7 +3,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 class SparseConv2d(torch.nn.Module):
-    def __init__(self,in_channel=1,out_channel=1,kernel_size = 3,padding = 1):
+    def __init__(self,in_channel=1,out_channel=1,kernel_size = 1,padding = 0):
         super().__init__()
         self.kernel_size = kernel_size
         self.weight = nn.Conv2d(in_channel,out_channel,kernel_size,padding=padding,bias=False)
@@ -22,7 +22,18 @@ class SparseConv2d(torch.nn.Module):
         output_feature = y*y_mask + self.bias
         output_mask = self.mask_maxpool(mask)
         return (output_feature,output_mask)
-
+class SparseReLU(torch.nn.Module):
+    def __init__(self,*args,**kwargs):
+        super().__init__()
+        self.relu = torch.nn.ReLU(*args,**kwargs)
+    def forward(self,feature,mask):
+        return (self.relu(feature),mask)
+class SparseMaxPool2d(torch.nn.Module):
+    def __init__(self,*args,**kwards):
+        super().__init__()
+        self.pool = torch.nn.MaxPool2d(*args,**kwards)
+    def forward(self,feature,mask):
+        return (self.pool(feature),self.pool(mask))
 # https://github.com/shelhamer/fcn.berkeleyvision.org/blob/master/surgery.py
 def get_upsampling_weight(in_channels, out_channels, kernel_size):
     """Make a 2D bilinear kernel suitable for upsampling"""
@@ -555,59 +566,59 @@ class MySparseFCN(nn.Module):
     def __init__(self,in_channel = 1, n_class=1):
         super(MySparseFCN, self).__init__()
         # conv1
-        self.conv1_1 = nn.Conv2d(in_channel, 16, 11, padding=100)
-        self.relu1_1 = nn.ReLU(inplace=True)
-        self.conv1_2 = nn.Conv2d(16, 16, 11, padding=5)
-        self.relu1_2 = nn.ReLU(inplace=True)
-        self.pool1 = nn.MaxPool2d(2, stride=2, ceil_mode=True)  # 1/2
+        self.conv1_1 = SparseConv2d(in_channel, 16, 11, padding=5)
+        self.relu1_1 = SparseReLU(inplace=True)
+        self.conv1_2 = SparseConv2d(16, 16, 11, padding=5)
+        self.relu1_2 = SparseReLU(inplace=True)
+        self.pool1 = SparseMaxPool2d(2, stride=2, ceil_mode=True)  # 1/2
 
         # conv2
-        self.conv2_1 = nn.Conv2d(16, 32, 7, padding=3)
-        self.relu2_1 = nn.ReLU(inplace=True)
-        self.conv2_2 = nn.Conv2d(32, 32, 7, padding=3)
-        self.relu2_2 = nn.ReLU(inplace=True)
-        self.pool2 = nn.MaxPool2d(2, stride=2, ceil_mode=True)  # 1/4
+        self.conv2_1 = SparseConv2d(16, 32, 7, padding=3)
+        self.relu2_1 = SparseReLU(inplace=True)
+        self.conv2_2 = SparseConv2d(32, 32, 7, padding=3)
+        self.relu2_2 = SparseReLU(inplace=True)
+        self.pool2 = SparseMaxPool2d(2, stride=2, ceil_mode=True)  # 1/4
 
         # conv3
-        self.conv3_1 = nn.Conv2d(32, 64, 5, padding=2)
-        self.relu3_1 = nn.ReLU(inplace=True)
-        self.conv3_2 = nn.Conv2d(64, 64, 5, padding=2)
-        self.relu3_2 = nn.ReLU(inplace=True)
-        self.conv3_3 = nn.Conv2d(64, 64, 5, padding=2)
-        self.relu3_3 = nn.ReLU(inplace=True)
-        self.pool3 = nn.MaxPool2d(2, stride=2, ceil_mode=True)  # 1/8
+        self.conv3_1 = SparseConv2d(32, 64, 5, padding=2)
+        self.relu3_1 = SparseReLU(inplace=True)
+        self.conv3_2 = SparseConv2d(64, 64, 5, padding=2)
+        self.relu3_2 = SparseReLU(inplace=True)
+        self.conv3_3 = SparseConv2d(64, 64, 5, padding=2)
+        self.relu3_3 = SparseReLU(inplace=True)
+        self.pool3 = SparseMaxPool2d(2, stride=2, ceil_mode=True)  # 1/8
 
         # conv4
-        self.conv4_1 = nn.Conv2d(64, 128, 3, padding=1)
-        self.relu4_1 = nn.ReLU(inplace=True)
-        self.conv4_2 = nn.Conv2d(128, 128, 3, padding=1)
-        self.relu4_2 = nn.ReLU(inplace=True)
-        self.conv4_3 = nn.Conv2d(128, 128, 3, padding=1)
-        self.relu4_3 = nn.ReLU(inplace=True)
-        self.pool4 = nn.MaxPool2d(2, stride=2, ceil_mode=True)  # 1/16
+        self.conv4_1 = SparseConv2d(64, 128, 3, padding=1)
+        self.relu4_1 = SparseReLU(inplace=True)
+        self.conv4_2 = SparseConv2d(128, 128, 3, padding=1)
+        self.relu4_2 = SparseReLU(inplace=True)
+        self.conv4_3 = SparseConv2d(128, 128, 3, padding=1)
+        self.relu4_3 = SparseReLU(inplace=True)
+        self.pool4 = SparseMaxPool2d(2, stride=2, ceil_mode=True)  # 1/16
 
         # conv5
-        self.conv5_1 = nn.Conv2d(128, 128, 3, padding=1)
-        self.relu5_1 = nn.ReLU(inplace=True)
-        self.conv5_2 = nn.Conv2d(128, 128, 3, padding=1)
-        self.relu5_2 = nn.ReLU(inplace=True)
-        self.conv5_3 = nn.Conv2d(128, 128, 3, padding=1)
-        self.relu5_3 = nn.ReLU(inplace=True)
-        self.pool5 = nn.MaxPool2d(2, stride=2, ceil_mode=True)  # 1/32
+        self.conv5_1 = SparseConv2d(128, 128, 3, padding=1)
+        self.relu5_1 = SparseReLU(inplace=True)
+        self.conv5_2 = SparseConv2d(128, 128, 3, padding=1)
+        self.relu5_2 = SparseReLU(inplace=True)
+        self.conv5_3 = SparseConv2d(128, 128, 3, padding=1)
+        self.relu5_3 = SparseReLU(inplace=True)
+        self.pool5 = SparseMaxPool2d(2, stride=2, ceil_mode=True)  # 1/32
 
         # fc6
-        self.fc6 = nn.Conv2d(128, 1024, 7)
-        self.relu6 = nn.ReLU(inplace=True)
+        self.fc6 = SparseConv2d(128, 1024, 7)
+        self.relu6 = SparseReLU(inplace=True)
         self.drop6 = nn.Dropout2d()
 
         # fc7
-        self.fc7 = nn.Conv2d(1024, 1024, 1)
-        self.relu7 = nn.ReLU(inplace=True)
+        self.fc7 = SparseConv2d(1024, 1024, 1)
+        self.relu7 = SparseReLU(inplace=True)
         self.drop7 = nn.Dropout2d()
 
-        self.score_fr = nn.Conv2d(1024, n_class, 1)
-        self.score_pool3 = nn.Conv2d(64, n_class, 1)
-        self.score_pool4 = nn.Conv2d(128, n_class, 1)
+        self.score_fr = SparseConv2d(1024, n_class, 1)
+        self.score_pool3 = SparseConv2d(64, n_class, 1)
+        self.score_pool4 = SparseConv2d(128, n_class, 1)
 
         self.upscore2 = nn.ConvTranspose2d(
             n_class, n_class, 4, stride=2, bias=False)
@@ -631,59 +642,68 @@ class MySparseFCN(nn.Module):
                 m.weight.data.copy_(initial_weight)
 
     def forward(self, x):
-        h = x
-        h = self.relu1_1(self.conv1_1(h))
-        h = self.relu1_2(self.conv1_2(h))
-        h = self.pool1(h)
+        feature = x
+        mask = torch.ones_like(feature)
+        mask[feature<0] = 0
+        feature,mask = self.relu1_1(*self.conv1_1(feature,mask))
+        feature,mask = self.relu1_2(*self.conv1_2(feature,mask))
+        feature,mask = self.pool1(feature,mask)
 
-        h = self.relu2_1(self.conv2_1(h))
-        h = self.relu2_2(self.conv2_2(h))
-        h = self.pool2(h)
+        feature,mask = self.relu2_1(*self.conv2_1(feature,mask))
+        feature,mask = self.relu2_2(*self.conv2_2(feature,mask))
+        feature,mask = self.pool2(feature,mask)
 
-        h = self.relu3_1(self.conv3_1(h))
-        h = self.relu3_2(self.conv3_2(h))
-        h = self.relu3_3(self.conv3_3(h))
-        h = self.pool3(h)
-        pool3 = h  # 1/8
+        feature,mask = self.relu3_1(*self.conv3_1(feature,mask))
+        feature,mask = self.relu3_2(*self.conv3_2(feature,mask))
+        feature,mask = self.relu3_3(*self.conv3_3(feature,mask))
+        feature,mask = self.pool3(feature,mask)
+        pool3 = (feature,mask)  # 1/8
 
-        h = self.relu4_1(self.conv4_1(h))
-        h = self.relu4_2(self.conv4_2(h))
-        h = self.relu4_3(self.conv4_3(h))
-        h = self.pool4(h)
-        pool4 = h  # 1/16
+        feature,mask = self.relu4_1(*self.conv4_1(feature,mask))
+        feature,mask = self.relu4_2(*self.conv4_2(feature,mask))
+        feature,mask = self.relu4_3(*self.conv4_3(feature,mask))
+        feature,mask = self.pool4(feature,mask)
+        pool4 = (feature,mask)  # 1/16
 
-        h = self.relu5_1(self.conv5_1(h))
-        h = self.relu5_2(self.conv5_2(h))
-        h = self.relu5_3(self.conv5_3(h))
-        h = self.pool5(h)
+        feature,mask = self.relu5_1(*self.conv5_1(feature,mask))
+        feature,mask = self.relu5_2(*self.conv5_2(feature,mask))
+        feature,mask = self.relu5_3(*self.conv5_3(feature,mask))
+        feature,mask = self.pool5(feature,mask)
 
-        h = self.relu6(self.fc6(h))
-        h = self.drop6(h)
+        feature,mask = self.relu6(*self.fc6(feature,mask))
+        feature = self.drop6(feature)
 
-        h = self.relu7(self.fc7(h))
-        h = self.drop7(h)
+        feature,mask = self.relu7(*self.fc7(feature,mask))
+        feature = self.drop7(feature)
 
-        h = self.score_fr(h)
-        h = self.upscore2(h)
-        upscore2 = h  # 1/16
+        feature,mask = self.score_fr(feature,mask)
+        feature = self.upscore2(feature)
+        upscore2 = feature  # 1/16
 
-        h = self.score_pool4(pool4)
-        h = h[:, :, 5:5 + upscore2.size()[2], 5:5 + upscore2.size()[3]]
-        score_pool4c = h  # 1/16
+        feature,mask = self.score_pool4(*pool4)
+        feature = feature[:, :, 5:5 + upscore2.size()[2], 5:5 + upscore2.size()[3]]
+        score_pool4c = feature  # 1/16
 
-        h = upscore2 + score_pool4c  # 1/16
-        h = self.upscore_pool4(h)
-        upscore_pool4 = h  # 1/8
+        feature = upscore2 + score_pool4c  # 1/16
+        feature = self.upscore_pool4(feature)
+        upscore_pool4 = feature  # 1/8
 
-        h = self.score_pool3(pool3)
-        h = h[:, :,
+        feature,mask = self.score_pool3(*pool3)
+        feature = feature[:, :,
               9:9 + upscore_pool4.size()[2],
               9:9 + upscore_pool4.size()[3]]
-        score_pool3c = h  # 1/8
+        score_pool3c = feature  # 1/8
 
-        h = upscore_pool4 + score_pool3c  # 1/8
+        feature = upscore_pool4 + score_pool3c  # 1/8
 
-        h = self.upscore8(h)
-        h = h[:, :, 31:31 + x.size()[2], 31:31 + x.size()[3]].contiguous()
+        feature = self.upscore8(feature)
+        feature = feature[:, :, 31:31 + x.size()[2], 31:31 + x.size()[3]].contiguous()
 
-        return h
+        return feature
+if __name__=="__main__":
+    model = MySparseFCN(1,1)
+    fcn = MyFCN(1,1)
+    input = torch.ones(1,1,500,500)
+    output = model(input)
+    output_fcn = fcn(input)
+    print(f"Input shape:{input.shape}\nFCN output shape:{output_fcn.shape}\nSparseFCN output shape:{output.shape}")
