@@ -2,3 +2,4 @@ model
 *.pdf
 log.md
 __pycache__
+.vscode
