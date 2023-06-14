@@ -53,7 +53,9 @@ class KITTIDataset(Dataset):
         # print(f"index:{index},index_begin:{index_begin},sync:{sync},img:{imgs_filename[index-index_begin]}")
         feature = utils.depth_read(os.path.join(raw_path,imgs_filename[index-index_begin]))
         groundtruth = utils.depth_read(os.path.join(groundtruth_path,imgs_filename[index-index_begin]))
-        return (torch.asarray(feature).to(torch.float32)[None],torch.asarray(groundtruth).to(torch.float32)[None])
+        #crop
+        return (torch.asarray(feature).to(torch.float32)[0:370,0:1224][None],
+                torch.asarray(groundtruth).to(torch.float32)[0:370,0:1224][None])
     def __len__(self):
         return self.len
 if __name__=="__main__":
