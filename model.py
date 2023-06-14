@@ -12,6 +12,11 @@ class SparseConv2d(torch.nn.Module):
         self.bias = torch.empty((1,out_channel,1,1),requires_grad=True)
         self.mask_maxpool = nn.MaxPool2d(kernel_size,1,padding=padding)
         torch.nn.init.xavier_uniform_(self.bias)
+    # use cuda
+    def _apply(self,fn):
+        super()._apply(fn)
+        self.bias = fn(self.bias)
+        return self
     def forward(self,feature,mask):
         y = feature*mask
         y = self.weight(y)
@@ -34,6 +39,14 @@ class SparseMaxPool2d(torch.nn.Module):
         self.pool = torch.nn.MaxPool2d(*args,**kwards)
     def forward(self,feature,mask):
         return (self.pool(feature),self.pool(mask))
+class SparsePadding2d(torch.nn.Module):
+    def __init__(self,in_channel = 1,out_channel = 1,padding = 0) -> None:
+        super().__init__()
+        self.fc = torch.nn.Conv2d(in_channel,out_channel,1,padding=padding,bias=False)
+        torch.nn.init.constant_(self.fc.weight,1)
+        self.fc.weight.requires_grad = False
+    def forward(self,feature,mask):
+        return self.fc(feature),self.fc(mask)
 # https://github.com/shelhamer/fcn.berkeleyvision.org/blob/master/surgery.py
 def get_upsampling_weight(in_channels, out_channels, kernel_size):
     """Make a 2D bilinear kernel suitable for upsampling"""
@@ -566,6 +579,7 @@ class MySparseFCN(nn.Module):
     def __init__(self,in_channel = 1, n_class=1):
         super(MySparseFCN, self).__init__()
         # conv1
+        self.init_pad = SparsePadding2d(in_channel,in_channel,95)
         self.conv1_1 = SparseConv2d(in_channel, 16, 11, padding=5)
         self.relu1_1 = SparseReLU(inplace=True)
         self.conv1_2 = SparseConv2d(16, 16, 11, padding=5)
@@ -643,8 +657,9 @@ class MySparseFCN(nn.Module):
 
     def forward(self, x):
         feature = x
-        mask = torch.ones_like(feature)
+        mask = torch.ones_like(feature).to(feature.device)
         mask[feature<0] = 0
+        feature,mask = self.init_pad(feature,mask)
         feature,mask = self.relu1_1(*self.conv1_1(feature,mask))
         feature,mask = self.relu1_2(*self.conv1_2(feature,mask))
         feature,mask = self.pool1(feature,mask)
@@ -703,7 +718,12 @@ class MySparseFCN(nn.Module):
 if __name__=="__main__":
     model = MySparseFCN(1,1)
     fcn = MyFCN(1,1)
-    input = torch.ones(1,1,500,500)
+    device = "cuda"
+    input = torch.ones(1,1,500,500).to(device)
+    model.to(device)
+    fcn.to(device)
     output = model(input)
     output_fcn = fcn(input)
     print(f"Input shape:{input.shape}\nFCN output shape:{output_fcn.shape}\nSparseFCN output shape:{output.shape}")
+    for i in model.parameters():
+        print(i.shape)
