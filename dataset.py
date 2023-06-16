@@ -32,6 +32,7 @@ class KITTIDataset(Dataset):
             if num_imgs>=num and num>0:
                 break
         self.len = num if num >0 and num < self.index_threshold[-1] else self.index_threshold[-1]
+        self.current_state = ()
     def __iter__(self):
         return self
     def __getitem__(self,index):
@@ -43,7 +44,7 @@ class KITTIDataset(Dataset):
             if index < index_threshold:
                 sync = self.index_threshold_sync[index_threshold]
                 raw_path = f"{self.dataset_dir}/data_depth_velodyne/{self.dataset_type}/{sync}/proj_depth/velodyne_raw/image_02"
-                groundtruth_path = f"E:/KITTI/data_depth_annotated/{self.dataset_type}/{sync}/proj_depth/groundtruth/image_02"
+                groundtruth_path = f"{self.dataset_dir}/data_depth_annotated/{self.dataset_type}/{sync}/proj_depth/groundtruth/image_02"
                 # print(sync)
                 break
             index_begin=index_threshold
@@ -53,6 +54,7 @@ class KITTIDataset(Dataset):
         # print(f"index:{index},index_begin:{index_begin},sync:{sync},img:{imgs_filename[index-index_begin]}")
         feature = utils.depth_read(os.path.join(raw_path,imgs_filename[index-index_begin]))
         groundtruth = utils.depth_read(os.path.join(groundtruth_path,imgs_filename[index-index_begin]))
+        self.current_state = (sync,imgs_filename[index-index_begin])
         #crop
         return (torch.asarray(feature).to(torch.float32)[0:370,0:1224][None],
                 torch.asarray(groundtruth).to(torch.float32)[0:370,0:1224][None])
